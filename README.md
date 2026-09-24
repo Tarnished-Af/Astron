@@ -41,7 +41,7 @@ Files open in an in-page viewer and there are no download links. (Screenshots ar
 You need a small Linux server, an OpenAI-compatible AI endpoint, and optionally Azure Document Intelligence for handwriting.
 
 ```bash
-git clone <your fork> astron && cd astron
+git clone https://github.com/Tarnished-Af/Astron.git && cd astron
 npm install --omit=dev
 cp .env.example .env     # then edit it
 node server.js
