@@ -1,0 +1,100 @@
+{
+  "course": "Your course, your college",
+
+  "_readme": "This file describes your degree: the years, the subjects and labs in each one, and their syllabus. Copy it, edit it, and point CATALOG at it in .env. See docs/CATALOG.md for the full explanation. Everything below is an example: replace it.",
+
+  "current": { "y": 1, "sem": 1 },
+
+  "years": [
+    { "y": 1, "label": "1st year", "sems": [1, 2], "c1": "#FF8A5B", "c2": "#FF5C8A" },
+    { "y": 2, "label": "2nd year", "sems": [3, 4], "c1": "#4FB3FF", "c2": "#6C7BFF" },
+    { "y": 3, "label": "3rd year", "sems": [5, 6], "c1": "#3FD8A0", "c2": "#22B5C9" },
+    { "y": 4, "label": "4th year", "sems": [7, 8], "c1": "#A98BFF", "c2": "#FF7CC8" }
+  ],
+
+  "palette": {
+    "coral": ["#FF8A5B", "#FF5C8A"],
+    "sky": ["#4FB3FF", "#6C7BFF"],
+    "mint": ["#3FD8A0", "#22B5C9"],
+    "sun": ["#FFC857", "#FF9F45"],
+    "pink": ["#FF7CC8", "#B86BFF"],
+    "lilac": ["#A98BFF", "#5F7BFF"],
+    "orange": ["#FFA24C", "#FF6B6B"]
+  },
+
+  "subjects": [
+    {
+      "id": "maths",
+      "y": 1,
+      "name": "Engineering Mathematics",
+      "short": "Maths",
+      "b": "M",
+      "p": "coral",
+      "code": "MA 101",
+      "sems": [1],
+      "type": "theory",
+      "units": [
+        "Matrices and linear systems",
+        "Differential calculus",
+        "Integral calculus",
+        "Differential equations",
+        "Complex variables"
+      ]
+    },
+    {
+      "id": "prog",
+      "y": 1,
+      "name": "Programming Fundamentals",
+      "short": "Programming",
+      "b": "Pr",
+      "p": "lilac",
+      "code": "CS 101",
+      "sems": [1],
+      "type": "theory",
+      "units": [
+        "How a computer works",
+        "Algorithms and flowcharts",
+        "Variables and control flow",
+        "Functions and arrays",
+        "Files and strings"
+      ]
+    },
+    {
+      "id": "proglab",
+      "y": 1,
+      "name": "Programming Lab",
+      "short": "Programming Lab",
+      "p": "lilac",
+      "code": "CS 151",
+      "sems": [1],
+      "type": "lab",
+      "units": [
+        "Setting up and first programs",
+        "Conditionals",
+        "Loops",
+        "Functions",
+        "Arrays and strings"
+      ]
+    }
+  ],
+
+  "syllabus": {
+    "CS 101": {
+      "title": "Programming Fundamentals",
+      "credit": "3",
+      "ltp": "3L + 0T + 0P",
+      "marks": [30, 70],
+      "exam": 3,
+      "co": [
+        "Understand how a program runs on a computer.",
+        "Design algorithms and flowcharts for simple problems.",
+        "Write, trace and debug small programs."
+      ],
+      "rows": [
+        { "n": 1, "h": 8, "head": "How a computer works", "topics": "Memory, storage, compilers and interpreters. Representing numbers and text." },
+        { "n": 2, "h": 6, "head": "Algorithms and flowcharts", "topics": "Steps, decisions, loops. Writing pseudocode before writing a program." }
+      ],
+      "books": ["Your recommended textbook here."]
+    }
+  }
+}

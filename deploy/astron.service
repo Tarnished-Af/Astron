@@ -1,0 +1,17 @@
+[Unit]
+Description=Astron notes site
+After=network.target
+
+[Service]
+User=astron
+WorkingDirectory=/opt/astron
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+NoNewPrivileges=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/astron /tmp
+
+[Install]
+WantedBy=multi-user.target

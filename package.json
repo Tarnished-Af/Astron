@@ -1,0 +1,25 @@
+{
+  "name": "astron",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Astron: a private notes site for a small group, with AI answers from the notes.",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fontsource/kalam": "^5.3.0",
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.3.0",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "katex": "^0.18.9",
+    "marked": "^18.0.14",
+    "multer": "^1.4.5-lts.1"
+  }
+}
