@@ -41,7 +41,7 @@ Files open in an in-page viewer and there are no download links. (Screenshots ar
 You need a small Linux server, an OpenAI-compatible AI endpoint, and optionally Azure Document Intelligence for handwriting.
 
 ```bash
-git clone https://github.com/Tarnished-Af/Astron.git && cd astron && sudo bash deploy/setup.sh
+git clone https://github.com/Tarnished-Af/Astron.git && sudo bash Astron/deploy/setup.sh 
 ```
 
 Open the address it prints and sign in as the admin from `.env`. Everything after that — the course, the keys, the limits — can be set from the site itself.
