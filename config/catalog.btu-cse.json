@@ -1,6 +1,8 @@
 {
+ "course": "B.Tech Computer Science",
+ "institution": "Bikaner Technical University",
+ "syllabusNote": "effective 2021-22",
  "$schema": "./catalog.schema.md",
- "course": "B.Tech Computer Science, Bikaner Technical University",
  "current": {
   "y": 1,
   "sem": 1

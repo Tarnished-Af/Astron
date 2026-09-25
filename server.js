@@ -56,7 +56,8 @@ const DEFAULTS = {
   ocr_engine: process.env.OCR_ENGINE || "azure",
   di_endpoint: process.env.AZURE_DI_ENDPOINT || "",
   di_key: process.env.AZURE_DI_KEY || "",
-  di_api_version: process.env.AZURE_DI_API_VERSION || "2024-11-30"
+  di_api_version: process.env.AZURE_DI_API_VERSION || "2024-11-30",
+  allow_download: process.env.ALLOW_DOWNLOAD || "admin"   // admin | everyone
 };
 const cfg = k => { const v = getSetting(db, k, undefined); return v === undefined || v === null ? DEFAULTS[k] : v; };
 const cfgNum = (k, min, max) => { const n = Number(cfg(k)); return isFinite(n) ? Math.min(max, Math.max(min, n)) : Number(DEFAULTS[k]); };
@@ -100,7 +101,7 @@ app.use((req, res, next) => {
 // ---------- helpers ----------
 const USERNAME = /^[a-z0-9._]{3,20}$/;
 const SUBJECT = /^[a-z0-9]{2,12}$/;
-const KINDS = ["notes", "hw", "lab", "raw"];
+const KINDS = ["notes", "hw", "lab", "raw", "pyq"];   // pyq = past question papers
 const bad = (res, code, msg) => res.status(code).json({ error: msg });
 const pub = u => u && { id: u.id, username: u.username, name: u.name, role: u.role, mustChange: !!u.must_change };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -216,7 +217,7 @@ api.post("/logout", (req, res) => {
   res.clearCookie("astron"); res.json({ ok: true });
 });
 
-api.get("/me", auth, (req, res) => res.json({ user: pub(req.user), ai: { ready: ai.ready, dailyLimit: cfgNum("ai_daily_limit", 0, 1000),
+api.get("/me", auth, (req, res) => res.json({ user: pub(req.user), allowDownload: cfg("allow_download"), ai: { ready: ai.ready, dailyLimit: cfgNum("ai_daily_limit", 0, 1000),
   usedToday: (db.prepare("SELECT count FROM ai_usage WHERE user_id = ? AND day = ?").get(req.user.id, today()) || { count: 0 }).count } }));
 
 api.post("/me/password", auth, (req, res) => {
@@ -254,10 +255,25 @@ api.post("/users/:id/reset", auth, ready, adminOnly, (req, res) => {
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(u.id);
   res.json({ ok: true });
 });
+api.patch("/users/:id/role", auth, ready, adminOnly, (req, res) => {
+  const u = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
+  if (!u) return bad(res, 404, "No such person.");
+  const role = req.body.role === "admin" ? "admin" : "friend";
+  if (role === "friend") {
+    const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+    if (u.role === "admin" && admins <= 1) return bad(res, 400, "Someone has to stay admin. Make another person an admin first.");
+  }
+  db.prepare("UPDATE users SET role = ? WHERE id = ?").run(role, u.id);
+  log(`@${req.user.username} made @${u.username} ${role === "admin" ? "an admin" : "a friend"}`);
+  res.json({ ok: true, role });
+});
+
 api.delete("/users/:id", auth, ready, adminOnly, (req, res) => {
   const u = db.prepare("SELECT * FROM users WHERE id = ?").get(req.params.id);
   if (!u) return bad(res, 404, "No such person.");
-  if (u.role === "admin") return bad(res, 400, "The admin account can't be removed.");
+  if (u.id === req.user.id) return bad(res, 400, "You can't remove your own account.");
+  const admins = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+  if (u.role === "admin" && admins <= 1) return bad(res, 400, "That's the only admin left.");
   db.prepare("DELETE FROM users WHERE id = ?").run(u.id);
   res.json({ ok: true });
 });
@@ -266,8 +282,9 @@ api.delete("/users/:id", auth, ready, adminOnly, (req, res) => {
 api.get("/files", auth, ready, (req, res) => {
   const rows = db.prepare(`SELECT f.id,f.kind,f.subject,f.sem,f.unit,f.title,f.ext,f.mime,f.bytes,f.status,f.tag,f.text_state AS textState,f.pages,
       f.created_at AS createdAt, COALESCE(u.name,'someone') AS who, u.id = ? AS mine,
-      EXISTS(SELECT 1 FROM stars s WHERE s.file_id = f.id AND s.user_id = ?) AS starred
-    FROM files f LEFT JOIN users u ON u.id = f.uploader_id ORDER BY f.created_at DESC`).all(req.user.id, req.user.id);
+      EXISTS(SELECT 1 FROM stars s WHERE s.file_id = f.id AND s.user_id = ?) AS starred,
+      EXISTS(SELECT 1 FROM hw_done h WHERE h.file_id = f.id AND h.user_id = ?) AS done
+    FROM files f LEFT JOIN users u ON u.id = f.uploader_id ORDER BY f.created_at DESC`).all(req.user.id, req.user.id, req.user.id);
   res.json({ files: rows });
 });
 
@@ -295,7 +312,7 @@ api.post("/files", auth, ready, (req, res) => {
     const b = req.body;
     const kind = req.user.role === "admin" ? b.kind : "raw"; // friends can only send raw
     const subject = String(b.subject || ""), sem = parseInt(b.sem, 10), unit = parseInt(b.unit, 10);
-    if (!KINDS.includes(kind) || !SUBJECT.test(subject) || !(sem >= 1 && sem <= 8) || !(unit >= 1 && unit <= 60)) {
+    if (!KINDS.includes(kind) || !SUBJECT.test(subject) || !(sem >= 1 && sem <= 20) || !(unit >= 0 && unit <= 99)) {
       dropAll(); return bad(res, 400, "Pick a subject, semester, unit and type.");
     }
     const okExt = req.user.role === "admin" ? /^(pdf|jpe?g|png|webp|heic|c|cpp|h|py|java|txt|md|zip)$/ : /^(pdf|jpe?g|png|webp|heic)$/;
@@ -359,6 +376,16 @@ api.get("/files/:id/text", auth, ready, (req, res) => {
   res.type("text/plain").send(fs.readFileSync(path.join(FILES_DIR, f.stored_as), "utf8").slice(0, 300000));
 });
 
+// Each person ticks off their own homework.
+api.post("/files/:id/done", auth, ready, (req, res) => {
+  const f = db.prepare("SELECT * FROM files WHERE id = ?").get(req.params.id);
+  if (!f) return bad(res, 404, "File not found.");
+  if (f.kind !== "hw" && f.kind !== "lab") return bad(res, 400, "Only homework and lab work can be ticked off.");
+  if (req.body.done) db.prepare("INSERT OR IGNORE INTO hw_done(user_id,file_id,done_at) VALUES(?,?,?)").run(req.user.id, f.id, Date.now());
+  else db.prepare("DELETE FROM hw_done WHERE user_id = ? AND file_id = ?").run(req.user.id, f.id);
+  res.json({ ok: true });
+});
+
 api.post("/files/:id/star", auth, ready, (req, res) => {
   const on = !!req.body.on;
   if (on) db.prepare("INSERT OR IGNORE INTO stars(user_id,file_id) VALUES(?,?)").run(req.user.id, req.params.id);
@@ -401,7 +428,27 @@ api.get("/catalog/usage", auth, ready, adminOnly, (req, res) => {
 api.put("/catalog", auth, ready, adminOnly, (req, res) => {
   const c = req.body && req.body.catalog;
   if (!c || !Array.isArray(c.subjects) || !Array.isArray(c.years)) return bad(res, 400, "That doesn't look like a catalog.");
+  for (const k of ["course", "institution", "syllabusNote"]) if (c[k] !== undefined) c[k] = String(c[k]).slice(0, 120);
   if (!c.subjects.length) return bad(res, 400, "A catalog needs at least one subject.");
+  for (const y of c.years) {
+    if (!(Number(y.y) >= 1 && Number(y.y) <= 20)) return bad(res, 400, "Years are numbered 1 to 20.");
+    if (!Array.isArray(y.sems) || !y.sems.length) return bad(res, 400, `"${y.label || ("Year " + y.y)}" needs at least one semester.`);
+    if (y.sems.some(n => !(Number(n) >= 1 && Number(n) <= 20))) return bad(res, 400, "Semesters are numbered 1 to 20.");
+  }
+  const ys = c.years.map(y => Number(y.y));
+  if (new Set(ys).size !== ys.length) return bad(res, 400, "Two years share the same number.");
+  // Categories: Subjects and Labs by default, but a course can define its own.
+  if (c.groups !== undefined) {
+    if (!Array.isArray(c.groups) || !c.groups.length) return bad(res, 400, "Categories must be a list, with at least one in it.");
+    const gids = new Set();
+    for (const g of c.groups) {
+      if (!/^[a-z0-9]{2,16}$/.test(String(g.id || ""))) return bad(res, 400, `A category needs an id of 2 to 16 lowercase letters or numbers.`);
+      if (gids.has(g.id)) return bad(res, 400, `Two categories share the id "${g.id}".`);
+      gids.add(g.id);
+      if (!String(g.label || "").trim()) return bad(res, 400, "Every category needs a name.");
+      if (g.type && !["theory", "lab"].includes(g.type)) return bad(res, 400, `"${g.label}" must behave like a subject or a lab.`);
+    }
+  }
   const ids = new Set();
   for (const s of c.subjects) {
     if (!/^[a-z0-9]{2,12}$/.test(String(s.id || ""))) return bad(res, 400, `"${s.name || s.id}" needs an id of 2 to 12 lowercase letters or numbers.`);
@@ -409,7 +456,9 @@ api.put("/catalog", auth, ready, adminOnly, (req, res) => {
     ids.add(s.id);
     if (!String(s.name || "").trim()) return bad(res, 400, "Every subject needs a name.");
     if (!Array.isArray(s.sems) || !s.sems.length) return bad(res, 400, `"${s.name}" needs at least one semester.`);
-    if (!["theory", "lab"].includes(s.type)) return bad(res, 400, `"${s.name}" must be a subject or a lab.`);
+    if (!["theory", "lab"].includes(s.type)) return bad(res, 400, `"${s.name}" must behave like a subject or a lab.`);
+    if (s.group !== undefined && c.groups && !c.groups.some(g => g.id === s.group)) return bad(res, 400, `"${s.name}" is in a category that doesn't exist.`);
+    s.hidden = !!s.hidden;
   }
   // Files under subjects that no longer exist would be unreachable, so they go.
   const gone = db.prepare("SELECT DISTINCT subject FROM files").all().map(r => r.subject).filter(x => !ids.has(x));
@@ -472,7 +521,7 @@ api.post("/notes", auth, ready, adminOnly, (req, res) => {
   const b = req.body || {};
   const subject = String(b.subject || ""), sem = parseInt(b.sem, 10), unit = parseInt(b.unit, 10);
   const markdown = String(b.markdown || "").replace(/```svg\s*([\s\S]*?)```/gi, (m, svg) => "```svg\n" + require("./lib/convert").cleanSVG(svg).trim() + "\n```");
-  if (!SUBJECT.test(subject) || !(sem >= 1 && sem <= 8) || !(unit >= 1 && unit <= 40)) return bad(res, 400, "Where do these notes belong?");
+  if (!SUBJECT.test(subject) || !(sem >= 1 && sem <= 20) || !(unit >= 0 && unit <= 99)) return bad(res, 400, "Where do these notes belong?");
   if (markdown.trim().length < 20) return bad(res, 400, "There's nothing to save.");
   const st = storage();
   const bytes = Buffer.byteLength(markdown, "utf8");
@@ -481,7 +530,7 @@ api.post("/notes", auth, ready, adminOnly, (req, res) => {
   const stored = crypto.randomBytes(16).toString("hex") + ".md";
   fs.writeFileSync(path.join(FILES_DIR, stored), markdown, "utf8");
   const info = db.prepare("INSERT INTO files(kind,subject,sem,unit,title,ext,mime,bytes,stored_as,uploader_id,status,tag,text_state,pages,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,NULL,?,'ready',NULL,?)")
-    .run("notes", subject, sem, unit, title, "md", "text/markdown", bytes, stored, req.user.id, b.draft === false ? null : "ai draft", Date.now());
+    .run(b.kind === "pyq" ? "pyq" : "notes", subject, sem, unit, title, "md", "text/markdown", bytes, stored, req.user.id, b.draft === false ? null : "ai draft", Date.now());
   indexText(info.lastInsertRowid, [{ page: 1, text: markdown }], subject, sem, unit);
   for (const id of (b.sourceIds || []).slice(0, 12).map(Number).filter(Boolean))
     db.prepare("UPDATE files SET status = 'used' WHERE id = ? AND kind = 'raw'").run(id);
@@ -542,6 +591,7 @@ api.put("/settings/all", auth, ready, adminOnly, (req, res) => {
   text("ai_format", 20, v => ["auto", "openai", "azure", "anthropic", "gemini"].includes(v));
   text("ai_api_version", 40);
   text("ocr_engine", 20, v => ["azure", "ai", "tesseract", "off"].includes(v));
+  text("allow_download", 20, v => ["admin", "everyone"].includes(v));
   text("di_endpoint", 300);
   text("di_api_version", 40);
   // Secrets are only written when something was actually typed in.
@@ -583,10 +633,14 @@ api.post("/ai", auth, ready, async (req, res) => {
   const used = (db.prepare("SELECT count FROM ai_usage WHERE user_id = ? AND day = ?").get(req.user.id, day) || { count: 0 }).count;
   if (req.user.role !== "admin" && used >= limit) return bad(res, 429, `You've used today's ${limit} AI requests. They reset at midnight UTC.`);
   const b = req.body || {};
-  if (!["ask", "quiz", "summary", "flashcards"].includes(b.mode)) return bad(res, 400, "Unknown AI action.");
+  if (!["ask", "quiz", "summary", "flashcards", "paper"].includes(b.mode)) return bad(res, 400, "Unknown AI action.");
   if (b.mode === "ask" && !String(b.question || "").trim()) return bad(res, 400, "Type a question.");
   try {
-    const out = await AI.run(db, ai, b);
+    const out = await AI.run(db, ai, b, {
+      siteName: cfg("site_name"),
+      course: (CATALOG && CATALOG.course) || "",
+      institution: (CATALOG && CATALOG.institution) || ""
+    });
     if (!out.empty) db.prepare("INSERT INTO ai_usage(user_id,day,count) VALUES(?,?,1) ON CONFLICT(user_id,day) DO UPDATE SET count = count + 1").run(req.user.id, day);
     res.json({ ...out, usedToday: used + (out.empty ? 0 : 1), dailyLimit: limit });
   } catch (e) {

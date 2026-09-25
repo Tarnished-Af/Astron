@@ -11,7 +11,7 @@ It is built for one course at one college. Everything about that course lives in
 ## What it does
 
 **Organised the way a degree actually is.**
-Year → subject or lab → semester → unit (labs count in experiments). Each unit holds Notes, Homework, Lab work and Raw uploads. Every subject also gets a Syllabus tab with credits, hours, course outcomes, unit topics and books.
+Year → subject or lab → semester → unit (labs count in experiments). Start with one year and add as many as you need. Subjects and Labs are just the default categories: add Electives, Projects or Workshops, each with its own name for what its parts are called. Subjects you aren't taking can be hidden rather than deleted, and sidebar sections fold away. Each unit holds Notes, Homework, Lab work and Raw uploads. Every subject also gets a Syllabus tab with credits, hours, course outcomes, unit topics and books.
 
 **Handwritten notes become typed notes.**
 Choose some photographed pages, press one button, and the AI types them up: clean headings, proper maths rendered with KaTeX, and diagrams redrawn as line art with your original photo kept one click away. You edit before saving, and notes stay marked as an AI draft until you check them.
@@ -26,10 +26,19 @@ Uploaded scans and photos are read by Azure AI Document Intelligence, so the AI 
 Only the admin creates accounts. Each person gets a username and a temporary password and picks their own on first sign-in. Forgotten passwords are reset by the admin. Passwords are stored hashed with bcrypt.
 
 **Run from the site, not the server.**
-An admin Manage course page edits subjects, units and the syllabus, with warnings before anything that would orphan files, and an Export button for sharing your catalog. A Settings page covers the site name, storage and AI limits, and the provider keys — saved on the server and never shown again.
+An admin Manage course page edits years, semesters, categories, subjects, units and the syllabus, with warnings before anything that would orphan files, and an Export button for sharing your catalog. A Settings page covers the site name, storage and AI limits, and the provider keys — saved on the server and never shown again.
 
 **Storage you can see.**
 A live bar shows what's used against a limit you set, broken down by type, year and subject. Uploads that would exceed the limit are refused before they start.
+
+**Comfortable to read.**
+Notes open in a reader over a blurred page, with controls for text size, typeface, line spacing and page width, all remembered. Save as PDF is admins-only by default and can be opened to everyone.
+
+**Homework you can tick off.**
+Each person ticks their own homework and lab work, so every unit shows what is still To do and what is Completed. Nobody sees anyone else's ticks.
+
+**Question papers.**
+Every subject has a Question papers tab for past papers, and the AI will set you a practice paper from your own notes: Part A, B and C, marks adding up, no answers.
 
 **View-only by design.**
 Files open in an in-page viewer and there are no download links. (Screenshots are always possible — this stops casual sharing, not a determined person.)
@@ -62,7 +71,8 @@ All in `.env` (see `.env.example`):
 | `OCR_ENGINE` | `azure`, `ai` (your own vision model), `tesseract` (local, free) or `off` |
 | `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | For the `azure` option; leave blank to skip |
 | `STORAGE_LIMIT_MB`, `MAX_FILE_MB` | Storage limit and per-file cap |
-| `AI_DAILY_LIMIT` | AI requests per person per day; the admin has no limit |
+| `AI_DAILY_LIMIT` | AI requests per person per day; admins have no limit |
+| `ALLOW_DOWNLOAD` | `admin` or `everyone`: who sees Save as PDF on typed notes |
 
 ## Making it your college's site
 

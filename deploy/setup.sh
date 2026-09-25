@@ -36,10 +36,12 @@ run_step() {                # run_step "What it's doing" command...
     printf "\r  ${c_ok}✓${c_off} %-44s ${c_dim}%s %d/%d${c_off}\n" "$label" "$(bar $STEP $STEPS)" $STEP $STEPS
   else
     printf "\r  ${c_err}✗${c_off} %-44s\n\n" "$label"
-    echo "${c_err}That step failed. The last few lines of the log:${c_off}"
-    tail -n 20 "$LOG" | sed 's/^/    /'
+    echo "  ${c_err}That step failed.${c_off}"
+    if [ -s "$LOG" ]; then echo "  Last few lines of the log:"; tail -n 20 "$LOG" | sed 's/^/    /'
+    else echo "  It failed without printing anything, which usually means a command"
+         echo "  returned an error code. Run it again with: sudo bash -x $0"; fi
     echo
-    echo "Full log: $LOG"
+    echo "  Full log: $LOG"
     exit 1
   fi
 }
@@ -104,6 +106,9 @@ copy_files() {
   id astron >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin astron
   mkdir -p "$APP" "$DATA"
   cp -r "$SRC"/server.js "$SRC"/package.json "$SRC"/lib "$SRC"/public "$SRC"/deploy "$SRC"/config "$APP"/
+  # Your course lives in its own file. The bundled examples stay untouched so
+  # updates can refresh them without ever overwriting your work.
+  [ -f "$APP/config/catalog.json" ] || cp "$APP/config/catalog.example.json" "$APP/config/catalog.json"
   [ -f "$SRC/package-lock.json" ] && cp "$SRC/package-lock.json" "$APP"/ || true
 }
 install_deps() { cd "$APP" && npm install --omit=dev --no-audit --no-fund; }
@@ -113,7 +118,7 @@ write_env() {
 PORT=3000
 DATA_DIR=$DATA
 SITE_NAME=$SITE_NAME
-CATALOG=$APP/config/catalog.example.json
+CATALOG=$APP/config/catalog.json
 ADMIN_USERNAME=$ADMIN_USER
 ADMIN_NAME=$ADMIN_NAME
 ADMIN_PASSWORD=$ADMIN_PASS
@@ -166,10 +171,8 @@ if journalctl -u astron --no-pager 2>/dev/null | grep -q "Created admin account"
   sed -i "s|^ADMIN_PASSWORD=.*|ADMIN_PASSWORD=|" "$APP/.env" || true
 fi
 
-IP=$(curl -s -m 3 -H Metadata:true "http://169.254.169.254/metadata/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress?api-version=2021-02-01&format=text" 2>/dev/null \
-     || curl -s -m 3 https://api.ipify.org 2>/dev/null || hostname -I | awk '{print $1}')
 PORT_SHOWN=${PORT_PUBLIC:-80}
-URL="http://$IP"; [ "$PORT_SHOWN" = "80" ] || URL="http://$IP:$PORT_SHOWN"
+URL="http://localhost"; [ "$PORT_SHOWN" = "80" ] || URL="http://localhost:$PORT_SHOWN"
 
 echo
 echo "  ${c_ok}Astron is running.${c_off}  $URL"

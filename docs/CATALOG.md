@@ -8,9 +8,27 @@ Start by copying `config/catalog.example.json`. A full real one is in `config/ca
 CATALOG=/opt/astron/catalog.json
 ```
 
-The file has five parts: `current`, `years`, `palette`, `subjects` and `syllabus`.
+The file has a few descriptive fields, then five parts: `current`, `years`, `palette`, `subjects` and `syllabus`.
 
 ---
+
+## About the course
+
+```json
+"course": "B.Tech Computer Science",
+"institution": "Your University",
+"syllabusNote": "effective 2021-22"
+```
+
+All optional, all shown to people using the site:
+
+| Field | Where it appears |
+|---|---|
+| `course` | Beside the site name on the year page, and in the AI's instructions so answers suit your course |
+| `institution` | The syllabus pages, and the line under each syllabus |
+| `syllabusNote` | Appended to that line, e.g. "effective 2021-22" |
+
+They can be edited from the **Manage course** page, under "About this course".
 
 ## current
 
@@ -36,6 +54,27 @@ Which year and semester everyone is in right now. Later years show as "starts la
 | `c1`, `c2` | Two colours for the year's banner. Optional. |
 
 A three-year degree just has three entries. Semesters can be numbered however your college does it.
+
+## groups
+
+The categories subjects are filed under. Leave this out and you get Subjects and Labs.
+
+```json
+"groups": [
+  { "id": "subjects", "label": "Subjects", "type": "theory", "word": "Unit" },
+  { "id": "labs",     "label": "Labs",     "type": "lab",    "word": "Experiment" },
+  { "id": "projects", "label": "Projects", "type": "theory", "word": "Milestone" }
+]
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | Short key, referenced by a subject's `group` |
+| `label` | Heading shown in the sidebar and on the year page |
+| `type` | `theory` gives Notes / Homework / Raw tabs; `lab` gives Lab work / Notes / Raw |
+| `word` | What its parts are called: Unit, Experiment, Module, Session… |
+
+Add, rename and remove them on the **Manage course** page, under Categories.
 
 ## palette
 
@@ -78,9 +117,11 @@ One entry per subject **and** per lab.
 | `b` | no | One or two letters for the badge. Labs show a flask instead. |
 | `p` | no | Palette colour name |
 | `code` | yes | Course code. Also links to the syllabus (see below). |
-| `sems` | yes | Which semesters it runs in |
+| `sems` | yes | Which semesters it runs in (1 to 20, so five-year and integrated courses work) |
 | `type` | yes | `theory` or `lab` |
 | `el` | no | Elective group name, e.g. `"Elective 1"`. Subjects sharing a name are shown as "pick one". |
+| `group` | no | Which category it belongs to. Defaults by `type`. |
+| `hidden` | no | `true` keeps it off the site without deleting it or its files |
 | `sample` | no | `true` marks it as a placeholder you haven't filled in yet |
 | `exam` | no | `["Mid-sem II", "24 Sep"]` shows in "Coming up" |
 | `units` | no | The units, in order. Labs call these experiments. |
@@ -140,6 +181,14 @@ For a **lab**, put each experiment as a row with just `head` and no `h`.
 Any subject with no syllabus entry simply shows "Syllabus not added yet". You can add them one at a time.
 
 ---
+
+## Starting from someone else's catalog
+
+The **Manage course** page has Import and Export buttons. Export downloads your catalog as JSON, ready to share or commit; Import loads one in as a draft, so you can look it over before saving.
+
+## A note on files
+
+Notes, homework and lab work belong to a unit. **Question papers belong to the subject**, so they appear under the Question papers tab rather than inside any unit.
 
 ## Checking your file
 
